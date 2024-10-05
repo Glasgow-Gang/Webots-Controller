@@ -27,7 +27,7 @@ set(WEBOTS_HOME /usr/local/webots)
 
 # ---------------------------------------------------------------------------------------
 # Sources
-add_executable(${PROJECT_NAME} nao_demo.cpp)
+add_executable(${PROJECT_NAME} main.cpp)
 
 # ---------------------------------------------------------------------------------------
 # Webots
@@ -49,4 +49,12 @@ target_include_directories(
   PUBLIC ${WEBOTS_HOME}/include/controller/c
   PUBLIC ${WEBOTS_HOME}/include/controller/cpp
   PUBLIC ${WEBOTS_HOME}/lib/controller
+)
+
+# ---------------------------------------------------------------------------------------
+# Magic Enum
+add_subdirectory(third_part/magic_enum)
+
+target_include_directories(${PROJECT_NAME} 
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_part/magic_enum/include/magic_enum
 )
