@@ -41,6 +41,8 @@ class NaoRobot : public webots::Robot {
     RShoulderRoll,
     RElbowYaw,
     RElbowRoll,
+    HeadYaw,
+    HeadPitch,
     NUMBER
   };
 
