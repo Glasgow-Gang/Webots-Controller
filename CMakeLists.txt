@@ -58,3 +58,18 @@ add_subdirectory(third_part/magic_enum)
 target_include_directories(${PROJECT_NAME} 
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_part/magic_enum/include/magic_enum
 )
+
+# ---------------------------------------------------------------------------------------
+# OpenCV
+find_package(OpenCV REQUIRED)
+
+message(STATUS "OpenCV library status:")
+message(STATUS "    config: ${OpenCV_DIR}")
+message(STATUS "    version: ${OpenCV_VERSION}")
+message(STATUS "    libraries: ${OpenCV_LIBS}")
+message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
+
+target_link_libraries(
+  ${PROJECT_NAME} 
+  PUBLIC ${OpenCV_LIBS}
+)
