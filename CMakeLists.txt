@@ -82,4 +82,4 @@ target_include_directories(${PROJECT_NAME}
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_part/eigen
 )
 
-add_compile_definitions(EIGEN_NO_MALLOC)
+# add_compile_definitions(EIGEN_NO_MALLOC)
