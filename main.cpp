@@ -23,6 +23,10 @@ double clamp(double value, double min, double max) {
 }
 
 int main() {
+  auto console = spdlog::stdout_color_mt("console");
+
+  spdlog::set_level(spdlog::level::trace);
+
   NaoRobot nao;
 
   while (nao.step(nao.timeStep) != -1) {
@@ -65,10 +69,6 @@ int main() {
 
     nao.UpdateEulr();
     nao.HeadControl();
-
-    // std::this_thread::sleep_for(
-    //     std::chrono::milliseconds(static_cast<int>(nao.timeStep /
-    //     TIME_RATE)));
   }
   return 0;
 }

@@ -18,7 +18,7 @@ add_compile_options(-Werror -gdwarf-4)
 
 # ---------------------------------------------------------------------------------------
 # Flags
-add_compile_options(-Wall -Wextra -fno-builtin -fno-exceptions -ffunction-sections -fdata-sections)
+add_compile_options(-Wall -Wextra -fno-builtin -ffunction-sections -fdata-sections)
 link_libraries(pthread)
 
 # ---------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ set(WEBOTS_HOME /usr/local/webots)
 
 # ---------------------------------------------------------------------------------------
 # Sources
-add_executable(${PROJECT_NAME} main.cpp)
+add_executable(${PROJECT_NAME} main.cpp head_control.cpp)
 
 # ---------------------------------------------------------------------------------------
 # Webots
@@ -83,3 +83,9 @@ target_include_directories(${PROJECT_NAME}
 )
 
 # add_compile_definitions(EIGEN_NO_MALLOC)
+
+# ---------------------------------------------------------------------------------------
+# SPDLOG
+find_package(spdlog REQUIRED)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC spdlog::spdlog)
