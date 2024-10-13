@@ -13,6 +13,6 @@ const double I_head_pitch = 0.00249037;
 const double L_head_pitch = 0.0526;
 /* K Matrix */
 Eigen::Matrix<double, 3, 6> K_head =
-    (Eigen::Matrix<double, 3, 6>() << 0.1591, 0, 0, 0.02084, 0, 0, 0, 0.1518, 0,
-     0, 0.02031, 0, 0, 0, 0, 0, 0, 0)
+    (Eigen::Matrix<double, 3, 6>() << 0.691, 0, 0, 0.04084, 0, 0, 0, 0.3518, 0,
+     0, 0.03, 0, 0, 0, 0, 0, 0, 0)
         .finished();

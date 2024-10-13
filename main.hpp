@@ -129,12 +129,12 @@ class NaoRobot : public webots::Robot {
 
   void UpdateEulr() {
     auto eulr = inertialUnit->getRollPitchYaw();
-    float eulr_0 = eulr[0] - M_PI_2;
-    if (eulr[0] > M_PI) eulr_0 -= 2 * M_PI;
-    if (eulr[0] < -M_PI) eulr_0 += 2 * M_PI;
+    // float eulr_0 = eulr[0] - M_PI_2;
+    // if (eulr[0] > M_PI) eulr_0 -= 2 * M_PI;
+    // if (eulr[0] < -M_PI) eulr_0 += 2 * M_PI;
     body_posture_.pitch = eulr[1];
     body_posture_.yaw = eulr[2];
-    body_posture_.roll = eulr_0;
+    body_posture_.roll = eulr[0];
 
     std::cout << "Pitch: " << body_posture_.pitch << std::endl;
     std::cout << "Yaw: " << body_posture_.yaw << std::endl;
@@ -142,33 +142,16 @@ class NaoRobot : public webots::Robot {
   }
 
   void HeadControl() {
-    double pitch =
-        JointGetPosition(NaoRobot::JointID::HeadPitch) -
-        target_position_[static_cast<int>(NaoRobot::JointID::HeadPitch)];
-    double yaw = JointGetPosition(NaoRobot::JointID::HeadYaw) -
-                 target_position_[static_cast<int>(NaoRobot::JointID::HeadYaw)];
-
-    static Eigen::Matrix<double, 6, 1> old_x =
-        (Eigen::Matrix<double, 6, 1>() << pitch, yaw, 0, 0, 0, 0).finished();
-
-    Eigen::Matrix<double, 6, 1> x;
-    x << pitch, yaw, 0, (pitch - old_x(0, 0)) / timeStep * 1000,
-        (yaw - old_x(1, 0)) / timeStep * 1000, 0;
-
-    old_x = x;
-
-    std::cout << "x = " << x << std::endl;
+    std::cout << "# HeadControl" << std::endl;
+    double pitch = JointGetPosition(NaoRobot::JointID::HeadPitch);
+    double yaw = JointGetPosition(NaoRobot::JointID::HeadYaw);
+    std::cout << "Joint Pitch = " << pitch << std::endl;
+    std::cout << "Joint Yaw = " << yaw << std::endl;
     std::cout << "K = " << K_head << std::endl;
 
     double psi_beta = body_posture_.yaw;      // Yaw angle of the body
     double theta_beta = body_posture_.pitch;  // Pitch angle of the body
     double phi_beta = body_posture_.roll;     // Roll angle of the body
-
-    double theta_yaw =
-        JointGetPosition(NaoRobot::JointID::HeadYaw);  // Yaw angle of the head
-    double theta_pitch = JointGetPosition(
-        NaoRobot::JointID::HeadPitch);  // Pitch angle of the head
-    double theta_roll = 0;              // Roll angle of the head
 
     // Calculate the rotation matrix C_beta^alpha for the body
     Eigen::Matrix3d C_beta_alpha;
@@ -184,6 +167,51 @@ class NaoRobot : public webots::Robot {
         cos(phi_beta) * sin(theta_beta) * sin(psi_beta) -
             sin(phi_beta) * cos(psi_beta),
         cos(phi_beta) * cos(theta_beta);
+
+    // Calculate the target rotation matrix C_gamma^alpha for the head
+    Eigen::Matrix3d C_gamma_alpha_target;
+    double theta_gamma =
+        target_position_[static_cast<int>(NaoRobot::JointID::HeadPitch)];
+    double psi_gamma =
+        target_position_[static_cast<int>(NaoRobot::JointID::HeadYaw)];
+    double phi_gamma = phi_beta;
+    C_gamma_alpha_target << cos(theta_gamma) * cos(psi_gamma),
+        cos(theta_gamma) * sin(psi_gamma), -sin(theta_gamma),
+        sin(phi_gamma) * sin(theta_gamma) * cos(psi_gamma) -
+            cos(phi_gamma) * sin(psi_gamma),
+        sin(phi_gamma) * sin(theta_gamma) * sin(psi_gamma) +
+            cos(phi_gamma) * cos(psi_gamma),
+        sin(phi_gamma) * cos(theta_gamma),
+        cos(phi_gamma) * sin(theta_gamma) * cos(psi_gamma) +
+            sin(phi_gamma) * sin(psi_gamma),
+        cos(phi_gamma) * sin(theta_gamma) * sin(psi_gamma) -
+            sin(phi_gamma) * cos(psi_gamma),
+        cos(phi_gamma) * cos(theta_gamma);
+
+    Eigen::Matrix3d C_gamma_beta_target =
+        C_beta_alpha.transpose() * C_gamma_alpha_target;
+
+    double target_yaw =
+        atan2(C_gamma_beta_target(1, 0), C_gamma_beta_target(0, 0));
+    double target_pitch =
+        atan2(-C_gamma_beta_target(2, 0),
+              sqrt(C_gamma_beta_target(2, 2) * C_gamma_beta_target(2, 2) +
+                   C_gamma_beta_target(2, 1) * C_gamma_beta_target(2, 1)));
+    double target_roll =
+        atan2(C_gamma_beta_target(2, 1), C_gamma_beta_target(2, 2));
+
+    std::cout << "Target yaw: " << psi_gamma << std::endl;
+    std::cout << "Target pitch: " << theta_gamma << std::endl;
+    std::cout << "Target roll: " << phi_gamma << std::endl;
+    std::cout << "Target joint yaw: " << target_yaw << std::endl;
+    std::cout << "Target joint pitch: " << target_pitch << std::endl;
+    std::cout << "Target joint roll: " << target_roll << std::endl;
+
+    double theta_yaw =
+        JointGetPosition(NaoRobot::JointID::HeadYaw);  // Yaw angle of the head
+    double theta_pitch = JointGetPosition(
+        NaoRobot::JointID::HeadPitch);  // Pitch angle of the head
+    double theta_roll = 0;              // Roll angle of the head
 
     // Calculate the rotation matrix C_gamma^beta for the head
     Eigen::Matrix3d C_gamma_beta;
@@ -216,24 +244,35 @@ class NaoRobot : public webots::Robot {
 
     // Calculate the Euler angles
     // double psi_gamma = atan2(r_21, r_11);  // Yaw 角
-    double theta_gamma =
-        atan2(-r_31, sqrt(r_32 * r_32 + r_33 * r_33));  // Pitch 角
+    theta_gamma = atan2(-r_31, sqrt(r_32 * r_32 + r_33 * r_33));  // Pitch 角
     // double theta_beta_calculated = atan2(r_32, r_33);   // Roll 角
+
+    static Eigen::Matrix<double, 6, 1> old_x =
+        (Eigen::Matrix<double, 6, 1>() << pitch, yaw, 0, 0, 0, 0).finished();
+
+    Eigen::Matrix<double, 6, 1> x;
+    x << pitch + target_pitch, yaw + target_yaw, 0,
+        (pitch + target_pitch - old_x(0, 0)) / timeStep * 1000,
+        (yaw + target_yaw - old_x(1, 0)) / timeStep * 1000, 0;
+
+    old_x = x;
+
+    std::cout << "x = " << x << std::endl;
 
     Eigen::Matrix<double, 3, 1> u_k = K_head * x;
     Eigen::Matrix<double, 3, 1> u_ff =
         (Eigen::Matrix<double, 3, 1>()
-             << -I_head_pitch / L_head_pitch * g * sin(theta_gamma),
+             << I_head_pitch / L_head_pitch * g * sin(theta_gamma),
          0, 0)
             .finished();
     std::cout << "u_k = " << u_k << std::endl;
     std::cout << "u_ff = " << u_ff << std::endl;
 
-    Eigen::Matrix<double, 3, 1> u = u_k + u_ff;
+    Eigen::Matrix<double, 3, 1> u = -u_k + u_ff;
     std::cout << "u = " << u << std::endl;
 
-    JointTorqueControl(NaoRobot::JointID::HeadPitch, -u(0, 0));
-    JointTorqueControl(NaoRobot::JointID::HeadYaw, -u(1, 0));
+    JointTorqueControl(NaoRobot::JointID::HeadPitch, u(0, 0));
+    JointTorqueControl(NaoRobot::JointID::HeadYaw, u(1, 0));
     // JointTorqueControl(NaoRobot::JointID::HeadRoll, u(2, 0));
   }
 

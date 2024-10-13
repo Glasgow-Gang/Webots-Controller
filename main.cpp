@@ -2,7 +2,9 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <chrono>
 #include <cstdio>
+#include <thread>
 
 #include "inertial.hpp"
 #include "opencv2/core.hpp"
@@ -12,6 +14,8 @@
 #include "params.hpp"
 
 #define G 9.81
+
+#define TIME_RATE 0.1
 
 /* Utility function */
 double clamp(double value, double min, double max) {
@@ -61,6 +65,10 @@ int main() {
 
     nao.UpdateEulr();
     nao.HeadControl();
+
+    // std::this_thread::sleep_for(
+    //     std::chrono::milliseconds(static_cast<int>(nao.timeStep /
+    //     TIME_RATE)));
   }
   return 0;
 }
