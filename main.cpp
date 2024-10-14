@@ -33,7 +33,7 @@ int main() {
     static int count = 0, fsm = 0;
 
     count++;
-    if (count > 500) {
+    if (count > 1000) {
       count = 0;
       switch (fsm) {
         case 0:

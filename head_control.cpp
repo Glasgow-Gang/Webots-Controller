@@ -128,7 +128,7 @@ void NaoRobot::HeadControl() {
   Eigen::Matrix<double, 3, 1> u_k = K_head * x;
   Eigen::Matrix<double, 3, 1> u_ff =
       (Eigen::Matrix<double, 3, 1>()
-           << I_head_pitch / L_head_pitch * g * sin(theta_gamma),
+           << m_head * L_head_pitch * g * sin(theta_gamma),
        0, 0)
           .finished();
   spdlog::debug("\nu_k =\n [{}, {}, {}]", u_k(0, 0), u_k(1, 0), u_k(2, 0));
