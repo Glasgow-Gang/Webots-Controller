@@ -18,7 +18,7 @@ add_compile_options(-Werror -gdwarf-4)
 
 # ---------------------------------------------------------------------------------------
 # Flags
-add_compile_options(-Wall -Wextra -fno-builtin -fno-exceptions -ffunction-sections -fdata-sections)
+add_compile_options(-Wall -Wextra -fno-builtin -ffunction-sections -fdata-sections)
 link_libraries(pthread)
 
 # ---------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ set(WEBOTS_HOME /usr/local/webots)
 
 # ---------------------------------------------------------------------------------------
 # Sources
-add_executable(${PROJECT_NAME} main.cpp)
+add_executable(${PROJECT_NAME} main.cpp head_control.cpp)
 
 # ---------------------------------------------------------------------------------------
 # Webots
@@ -58,3 +58,34 @@ add_subdirectory(third_part/magic_enum)
 target_include_directories(${PROJECT_NAME} 
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_part/magic_enum/include/magic_enum
 )
+
+# ---------------------------------------------------------------------------------------
+# OpenCV
+find_package(OpenCV REQUIRED)
+
+message(STATUS "OpenCV library status:")
+message(STATUS "    config: ${OpenCV_DIR}")
+message(STATUS "    version: ${OpenCV_VERSION}")
+message(STATUS "    libraries: ${OpenCV_LIBS}")
+message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
+
+target_link_libraries(
+  ${PROJECT_NAME}
+  PUBLIC ${OpenCV_LIBS}
+)
+
+# ---------------------------------------------------------------------------------------
+# Eigen
+add_subdirectory(third_part/eigen)
+
+target_include_directories(${PROJECT_NAME} 
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_part/eigen
+)
+
+# add_compile_definitions(EIGEN_NO_MALLOC)
+
+# ---------------------------------------------------------------------------------------
+# SPDLOG
+find_package(spdlog REQUIRED)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC spdlog::spdlog)
