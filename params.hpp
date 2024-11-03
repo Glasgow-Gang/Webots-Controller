@@ -1,9 +1,7 @@
 #pragma once
 
-#include <Eigen/Core>
-#include <Eigen/Dense>
 
-#include "inertial.hpp"
+#include "inertia.hpp"
 
 const double g = 9.81;
 

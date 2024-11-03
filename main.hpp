@@ -1,3 +1,5 @@
+#pragma once
+
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
@@ -15,12 +17,15 @@
 #include <webots/Robot.hpp>
 #include <webots/utils/Motion.hpp>
 
+#include "libxr_system.hpp"
 #include "magic_enum.hpp"
 #include "params.hpp"
 
 #define PHALANX_MAX 8
 
-class NaoRobot : public webots::Robot {
+class NaoRobot;
+
+class NaoRobot {
  public:
   enum class DistanceSensorID { LEFT, RIGHT, NUMBER };
 
@@ -35,6 +40,7 @@ class NaoRobot : public webots::Robot {
     LKneePitch,
     LAnklePitch,
     LAnkleRoll,
+    LWristYaw,
     RHipYawPitch,
     RHipRoll,
     RHipPitch,
@@ -45,67 +51,67 @@ class NaoRobot : public webots::Robot {
     RShoulderRoll,
     RElbowYaw,
     RElbowRoll,
+    RWristYaw,
     HeadYaw,
     HeadPitch,
     NUMBER
   };
 
-  NaoRobot() {
-    timeStep = getBasicTimeStep();
+  NaoRobot() : robot_(_libxr_webots_robot_handle) {
+    nao_robot = this;
+    timeStep = robot_->getBasicTimeStep();
 
     /* Initialize devices */
-    CameraTop = getCamera("CameraTop");
-    CameraBottom = getCamera("CameraBottom");
+    CameraTop = robot_->getCamera("CameraTop");
+    CameraBottom = robot_->getCamera("CameraBottom");
     CameraTop->enable(4 * timeStep);
     CameraBottom->enable(4 * timeStep);
 
     /* Accelerometer */
-    accelerometer = getAccelerometer("accelerometer");
+    accelerometer = robot_->getAccelerometer("accelerometer");
     accelerometer->enable(timeStep);
 
     /* Gyro */
-    gyro = getGyro("gyro");
+    gyro = robot_->getGyro("gyro");
     gyro->enable(timeStep);
 
     /* Inertial Unit */
-    inertialUnit = getInertialUnit("inertial unit");
+    inertialUnit = robot_->getInertialUnit("inertial unit");
     inertialUnit->enable(timeStep);
 
     /* Ultrasound sensors */
-    us[0] = getDistanceSensor("Sonar/Left");
-    us[1] = getDistanceSensor("Sonar/Right");
+    us[0] = robot_->getDistanceSensor("Sonar/Left");
+    us[1] = robot_->getDistanceSensor("Sonar/Right");
     for (auto sensor : us) {
       sensor->enable(timeStep);
     }
 
     /* Touch sensors and LEDs */
-    leds.push_back(getLED("ChestBoard/Led"));
-    leds.push_back(getLED("RFoot/Led"));
-    leds.push_back(getLED("LFoot/Led"));
-    leds.push_back(getLED("Face/Led/Right"));
-    leds.push_back(getLED("Face/Led/Left"));
-    leds.push_back(getLED("Ears/Led/Right"));
-    leds.push_back(getLED("Ears/Led/Left"));
+    leds.push_back(robot_->getLED("ChestBoard/Led"));
+    leds.push_back(robot_->getLED("RFoot/Led"));
+    leds.push_back(robot_->getLED("LFoot/Led"));
+    leds.push_back(robot_->getLED("Face/Led/Right"));
+    leds.push_back(robot_->getLED("Face/Led/Left"));
+    leds.push_back(robot_->getLED("Ears/Led/Right"));
+    leds.push_back(robot_->getLED("Ears/Led/Left"));
 
     /* Motors */
-    RShoulderPitch = getMotor("RShoulderPitch");
-    LShoulderPitch = getMotor("LShoulderPitch");
+    RShoulderPitch = robot_->getMotor("RShoulderPitch");
+    LShoulderPitch = robot_->getMotor("LShoulderPitch");
 
     for (int i = 0; i < PHALANX_MAX; i++) {
-      lPhalanx[i] = getMotor("LPhalanx" + std::to_string(i + 1));
-      rPhalanx[i] = getMotor("RPhalanx" + std::to_string(i + 1));
+      lPhalanx[i] = robot_->getMotor("LPhalanx" + std::to_string(i + 1));
+      rPhalanx[i] = robot_->getMotor("RPhalanx" + std::to_string(i + 1));
     }
 
     for (int i = 0; i < static_cast<int>(NaoRobot::JointID::NUMBER); i++) {
       auto actuator_name =
           magic_enum::enum_name(static_cast<NaoRobot::JointID>(i));
-      joint[i] = getMotor(std::string(actuator_name).c_str());
-      joint_sensors[i] = getPositionSensor(std::string(actuator_name).c_str() +
-                                           std::string("S"));
+      joint[i] = robot_->getMotor(std::string(actuator_name).c_str());
+      joint_sensors[i] = robot_->getPositionSensor(
+          std::string(actuator_name).c_str() + std::string("S"));
       joint_sensors[i]->enable(timeStep);
     }
-
-    getMotor("LShoulderPitch");
 
     keyboard.enable(timeStep);
   }
@@ -146,6 +152,8 @@ class NaoRobot : public webots::Robot {
 
   void HeadControl();
 
+  webots::Robot *robot_;
+
   webots::Camera *CameraTop, *CameraBottom;
   webots::Accelerometer *accelerometer;
   webots::Gyro *gyro;
@@ -167,4 +175,6 @@ class NaoRobot : public webots::Robot {
   } body_posture_;
 
   int timeStep;
+
+  static NaoRobot *nao_robot;
 };

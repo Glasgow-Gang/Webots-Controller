@@ -106,6 +106,12 @@
         "typeindex": "cpp",
         "variant": "cpp",
         "dense": "cpp",
-        "*.expression": "cpp"
+        "*.expression": "cpp",
+        "csignal": "cpp",
+        "any": "cpp",
+        "codecvt": "cpp",
+        "shared_mutex": "cpp",
+        "valarray": "cpp",
+        "*.ipp": "cpp"
     }
 }

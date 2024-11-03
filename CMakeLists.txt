@@ -75,17 +75,17 @@ target_link_libraries(
 )
 
 # ---------------------------------------------------------------------------------------
-# Eigen
-add_subdirectory(third_part/eigen)
-
-target_include_directories(${PROJECT_NAME} 
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_part/eigen
-)
-
-# add_compile_definitions(EIGEN_NO_MALLOC)
-
-# ---------------------------------------------------------------------------------------
 # SPDLOG
 find_package(spdlog REQUIRED)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC spdlog::spdlog)
+
+# ---------------------------------------------------------------------------------------
+# libxr
+set(LIBXR_SYSTEM Webots)
+
+add_compile_definitions(LIBXR_DEFAULT_SCALAR=double)
+
+add_subdirectory(third_part/libxr)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC xr)
