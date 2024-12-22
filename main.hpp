@@ -3,6 +3,9 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include "condition_var.hpp"
+#include "libxr.hpp"
+
 #include <iostream>
 #include <string>
 #include <webots/Accelerometer.hpp>
@@ -17,16 +20,38 @@
 #include <webots/Robot.hpp>
 #include <webots/utils/Motion.hpp>
 
+#include "libxr_def.hpp"
 #include "libxr_system.hpp"
 #include "magic_enum.hpp"
 #include "params.hpp"
+
+#include "kinematic.hpp"
+#include "thread.hpp"
 
 #define PHALANX_MAX 8
 
 class NaoRobot;
 
+enum class Motion {
+  Backwards,
+  SideStepLeft,
+  TurnLeft40,
+  Forwards50,
+  SideStepRight,
+  TurnLeft60,
+  Forwards,
+  StandUpFromFront,
+  TurnRight40,
+  HandWave,
+  TaiChi,
+  TurnRight60,
+  Shoot,
+  TurnLeft180,
+  WipeForehead,
+};
+
 class NaoRobot {
- public:
+public:
   enum class DistanceSensorID { LEFT, RIGHT, NUMBER };
 
   enum class JointID {
@@ -111,9 +136,30 @@ class NaoRobot {
       joint_sensors[i] = robot_->getPositionSensor(
           std::string(actuator_name).c_str() + std::string("S"));
       joint_sensors[i]->enable(timeStep);
+      joint[i]->setControlPID(15.0, 2.0, 0.);
     }
 
     keyboard.enable(timeStep);
+
+    LibXR::Inertia<double> i_Torso =
+        LibXR::Inertia(1.04956, 0.00308361, 0.0028835, 0.0015924, 1.43116e-05,
+                       -2.70793e-05, -3.30211e-05);
+
+    Torso = new LibXR::Kinematic::StartPoint<double>(i_Torso);
+
+    void (*thread_fun)(LibXR::Kinematic::StartPoint<double> *) =
+        [](LibXR::Kinematic::StartPoint<double> *start) {
+          while (true) {
+            nao_robot->WaitFeedback();
+            start->CalcForward();
+            start->CalcCenterOfMass();
+            nao_robot->ForwardFinish();
+            LibXR::Thread::Sleep(1);
+          }
+        };
+
+    thread.Create(Torso, thread_fun, "main", 4096,
+                  LibXR::Thread::Priority::REALTIME);
   }
 
   void JointPositionControl(JointID id, double position) {
@@ -152,6 +198,18 @@ class NaoRobot {
 
   void HeadControl();
 
+  static void WaitFeedback() {
+    for (int i = 0; i < 4; i++) {
+      nao_robot->wait_feedback.Wait(10);
+    }
+  }
+
+  static void WaitForwardFinish() { nao_robot->forward_finish.Wait(2); }
+
+  static void FeedbackFinish() { nao_robot->wait_feedback.Post(); }
+
+  static void ForwardFinish() { nao_robot->forward_finish.Broadcast(); }
+
   webots::Robot *robot_;
 
   webots::Camera *CameraTop, *CameraBottom;
@@ -177,4 +235,14 @@ class NaoRobot {
   int timeStep;
 
   static NaoRobot *nao_robot;
+
+  LibXR::Kinematic::StartPoint<double> *Torso = nullptr;
+
+  LibXR::Semaphore wait_feedback;
+
+  LibXR::ConditionVar forward_finish;
+
+  LibXR::Thread thread;
+
+  static bool control_enable;
 };

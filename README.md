@@ -1,5 +1,7 @@
 # Webots-Controller
 
+Important: Due to the stupid teaching method, this repository has been archived.
+
 Using as extern controller in Webots.
 
 ## Build

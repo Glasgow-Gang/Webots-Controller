@@ -12,8 +12,8 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/build)
 
 # ---------------------------------------------------------------------------------------
 # Debug
-set(CMAKE_C_FLAGS_DEBUG "-Og -g")
-set(CMAKE_ASM_FLAGS_DEBUG "-Og -g")
+set(CMAKE_C_FLAGS_DEBUG "-g")
+set(CMAKE_ASM_FLAGS_DEBUG "-g")
 add_compile_options(-Werror -gdwarf-4)
 
 # ---------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ set(WEBOTS_HOME /usr/local/webots)
 
 # ---------------------------------------------------------------------------------------
 # Sources
-add_executable(${PROJECT_NAME} main.cpp head_control.cpp)
+add_executable(${PROJECT_NAME} main.cpp)
 
 # ---------------------------------------------------------------------------------------
 # Webots

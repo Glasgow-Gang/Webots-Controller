@@ -6,7 +6,6 @@ class LeftArm {
 public:
   LeftArm() {
     /* Objects */
-    Torso = new LibXR::Kinematic::StartPoint<double>(i_Torso);
     LShoulder = new LibXR::Kinematic::Object<double>(i_LShoulder);
     LBicep = new LibXR::Kinematic::Object<double>(i_LBicep);
     LElbow = new LibXR::Kinematic::Object<double>(i_LElbow);
@@ -15,8 +14,8 @@ public:
 
     /* Joints */
     LShoulderPitch = new LibXR::Kinematic::Joint<double>(
-        a_LShoulderPitch, Torso, t_Torso_LShoulderPitch, LShoulder,
-        t_LShoulderPitch_LShoulder);
+        a_LShoulderPitch, NaoRobot::nao_robot->Torso, t_Torso_LShoulderPitch,
+        LShoulder, t_LShoulderPitch_LShoulder);
     LShoulderRoll = new LibXR::Kinematic::Joint<double>(
         a_LShoulderRoll, LShoulder, t_LShoulder_LShoulderRoll, LBicep,
         t_LShoulderRoll_LBicep);
@@ -31,6 +30,8 @@ public:
 
     LWrist->SetErrorWeight(
         Eigen::Matrix<double, 6, 1>(1.0, 1.0, 1.0, 0.1, 0.1, 0.1));
+    LWrist->SetMaxAngularVelocity(20);
+    LWrist->SetMaxLineVelocity(20);
 
     LShoulderPitch->SetBackwardMult(1.0);
     LShoulderRoll->SetBackwardMult(1.0);
@@ -58,13 +59,11 @@ public:
             break;
           case 2:
             l->LWrist->SetTargetPosition(LibXR::Position(0.25, 0.2, 0.0));
-
             fsm = 3;
             break;
           case 3:
             fsm = 4;
             l->LWrist->SetTargetPosition(LibXR::Position(0.25, 0.2, 0.1));
-
             break;
           default:
             fsm = 0;
@@ -74,10 +73,13 @@ public:
 
         l->LWrist->SetTargetQuaternion(eulr.toQuaternion());
         l->UpdateFeedback();
-        l->Torso->CalcForward();
-        l->LWrist->CalcBackward(100, 0.01, 0.01);
 
-        l->Control();
+        NaoRobot::WaitForwardFinish();
+        l->LWrist->CalcBackward(0.001, 100, 0.01, 0.01);
+
+        if (NaoRobot::control_enable) {
+          l->Control();
+        }
 
         LibXR::Thread::Sleep(1);
       }
@@ -98,6 +100,7 @@ public:
         NaoRobot::nao_robot->JointGetPosition(NaoRobot::JointID::LElbowRoll));
     LWristYaw->SetState(
         NaoRobot::nao_robot->JointGetPosition(NaoRobot::JointID::LWristYaw));
+    NaoRobot::FeedbackFinish();
   }
 
   void Control() {
@@ -117,9 +120,6 @@ public:
   }
 
   /* Inertia */
-  LibXR::Inertia<double> i_Torso =
-      LibXR::Inertia(1.04956, 0.00308361, 0.0028835, 0.0015924, 1.43116e-05,
-                     -2.70793e-05, -3.30211e-05);
   LibXR::Inertia<double> i_LShoulder =
       LibXR::Inertia(0.07504, 3.10677e-05, 1.39498e-05, 3.30001e-05, 1.2692e-06,
                      -2.99484e-07, 6.04576e-09);
@@ -173,7 +173,6 @@ public:
   LibXR::Axis<double> a_LWristYaw = LibXR::Axis<double>::X();
 
   /* Chain */
-  LibXR::Kinematic::StartPoint<double> *Torso = nullptr;
   LibXR::Kinematic::Joint<double> *LShoulderPitch = nullptr;
   LibXR::Kinematic::Object<double> *LShoulder = nullptr;
   LibXR::Kinematic::Joint<double> *LShoulderRoll = nullptr;
@@ -187,4 +186,20 @@ public:
 
   /* Thread... */
   LibXR::Thread thread;
+
+  void SetTargetQuaternion(LibXR::Quaternion<double> target) {
+    LWrist->SetTargetQuaternion(target);
+  }
+
+  void SetTargetPosition(LibXR::Position<double> target) {
+    LWrist->SetTargetPosition(target);
+  }
+
+  LibXR::Position<double> GetPosition() {
+    return LWrist->runtime_.state.translation;
+  }
+
+  LibXR::Quaternion<double> GetQuaternion() {
+    return LWrist->runtime_.state.rotation;
+  }
 };

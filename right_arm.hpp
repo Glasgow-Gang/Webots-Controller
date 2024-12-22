@@ -6,7 +6,6 @@ class RightArm {
 public:
   RightArm() {
     /* Objects */
-    Torso = new LibXR::Kinematic::StartPoint<double>(i_Torso);
     RShoulder = new LibXR::Kinematic::Object<double>(i_RShoulder);
     RBicep = new LibXR::Kinematic::Object<double>(i_RBicep);
     RElbow = new LibXR::Kinematic::Object<double>(i_RElbow);
@@ -15,8 +14,8 @@ public:
 
     /* Joints */
     LShoulderPitch = new LibXR::Kinematic::Joint<double>(
-        a_RShoulderPitch, Torso, t_Torso_RShoulderPitch, RShoulder,
-        t_RShoulderPitch_RShoulder);
+        a_RShoulderPitch, NaoRobot::nao_robot->Torso, t_Torso_RShoulderPitch,
+        RShoulder, t_RShoulderPitch_RShoulder);
     LShoulderRoll = new LibXR::Kinematic::Joint<double>(
         a_RShoulderRoll, RShoulder, t_RShoulder_RShoulderRoll, RBicep,
         t_RShoulderRoll_RBicep);
@@ -25,18 +24,20 @@ public:
     LElbowRoll = new LibXR::Kinematic::Joint<double>(
         a_RElbowRoll, RElbow, t_RElbow_RElbowRoll, RForeArm,
         t_RElbowRoll_RForeArm);
-    LWristYaw = new LibXR::Kinematic::Joint<double>(a_RWristYaw, RForeArm,
+    RWristYaw = new LibXR::Kinematic::Joint<double>(a_RWristYaw, RForeArm,
                                                     t_RForeArm_RWristYaw,
                                                     RWrist, t_RWristYaw_RWrist);
 
     RWrist->SetErrorWeight(
         Eigen::Matrix<double, 6, 1>(1.0, 1.0, 1.0, 0.1, 0.1, 0.1));
+    RWrist->SetMaxAngularVelocity(20);
+    RWrist->SetMaxLineVelocity(20);
 
     LShoulderPitch->SetBackwardMult(1.0);
     LShoulderRoll->SetBackwardMult(1.0);
     LElbowYaw->SetBackwardMult(1.0);
     LElbowRoll->SetBackwardMult(1.0);
-    LWristYaw->SetBackwardMult(1.0);
+    RWristYaw->SetBackwardMult(1.0);
 
     void (*thread_func)(RightArm *) = [](RightArm *l) {
       LibXR::EulerAngle eulr(0., 0., 0.);
@@ -56,10 +57,13 @@ public:
 
         l->RWrist->SetTargetQuaternion(eulr.toQuaternion());
         l->UpdateFeedback();
-        l->Torso->CalcForward();
-        l->RWrist->CalcBackward(100, 0.01, 0.01);
 
-        l->Control();
+        NaoRobot::WaitForwardFinish();
+        l->RWrist->CalcBackward(0.001, 100, 0.01, 0.01);
+
+        if (NaoRobot::control_enable) {
+          l->Control();
+        }
 
         LibXR::Thread::Sleep(1);
       }
@@ -78,8 +82,9 @@ public:
         NaoRobot::nao_robot->JointGetPosition(NaoRobot::JointID::RElbowYaw));
     LElbowRoll->SetState(
         NaoRobot::nao_robot->JointGetPosition(NaoRobot::JointID::RElbowRoll));
-    LWristYaw->SetState(
+    RWristYaw->SetState(
         NaoRobot::nao_robot->JointGetPosition(NaoRobot::JointID::RWristYaw));
+    NaoRobot::FeedbackFinish();
   }
 
   void Control() {
@@ -95,13 +100,10 @@ public:
         NaoRobot::JointID::RElbowRoll,
         LElbowRoll->runtime_.target_angle.angle());
     NaoRobot::nao_robot->JointPositionControl(
-        NaoRobot::JointID::RWristYaw, LWristYaw->runtime_.target_angle.angle());
+        NaoRobot::JointID::RWristYaw, RWristYaw->runtime_.target_angle.angle());
   }
 
   /* Inertia */
-  LibXR::Inertia<double> i_Torso =
-      LibXR::Inertia(1.04956, 0.00308361, 0.0028835, 0.0015924, 1.43116e-05,
-                     -2.70793e-05, -3.30211e-05);
   LibXR::Inertia<double> i_RShoulder =
       LibXR::Inertia(0.07504, 3.10677e-05, 1.39498e-05, 3.30001e-05,
                      -1.2692e-06, -2.99484e-07, 6.04576e-09);
@@ -155,7 +157,6 @@ public:
   LibXR::Axis<double> a_RWristYaw = LibXR::Axis<double>::X();
 
   /* Chain */
-  LibXR::Kinematic::StartPoint<double> *Torso = nullptr;
   LibXR::Kinematic::Joint<double> *LShoulderPitch = nullptr;
   LibXR::Kinematic::Object<double> *RShoulder = nullptr;
   LibXR::Kinematic::Joint<double> *LShoulderRoll = nullptr;
@@ -164,9 +165,25 @@ public:
   LibXR::Kinematic::Object<double> *RElbow = nullptr;
   LibXR::Kinematic::Joint<double> *LElbowRoll = nullptr;
   LibXR::Kinematic::Object<double> *RForeArm = nullptr;
-  LibXR::Kinematic::Joint<double> *LWristYaw = nullptr;
+  LibXR::Kinematic::Joint<double> *RWristYaw = nullptr;
   LibXR::Kinematic::EndPoint<double> *RWrist = nullptr;
 
   /* Thread... */
   LibXR::Thread thread;
+
+  void SetTargetQuaternion(LibXR::Quaternion<double> target) {
+    RWrist->SetTargetQuaternion(target);
+  }
+
+  void SetTargetPosition(LibXR::Position<double> target) {
+    RWrist->SetTargetPosition(target);
+  }
+
+  LibXR::Position<double> GetPosition() {
+    return RWrist->runtime_.state.translation;
+  }
+
+  LibXR::Quaternion<double> GetQuaternion() {
+    return RWrist->runtime_.state.rotation;
+  }
 };
