@@ -60,27 +60,6 @@ target_include_directories(${PROJECT_NAME}
 )
 
 # ---------------------------------------------------------------------------------------
-# OpenCV
-find_package(OpenCV REQUIRED)
-
-message(STATUS "OpenCV library status:")
-message(STATUS "    config: ${OpenCV_DIR}")
-message(STATUS "    version: ${OpenCV_VERSION}")
-message(STATUS "    libraries: ${OpenCV_LIBS}")
-message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
-
-target_link_libraries(
-  ${PROJECT_NAME}
-  PUBLIC ${OpenCV_LIBS}
-)
-
-# ---------------------------------------------------------------------------------------
-# SPDLOG
-find_package(spdlog REQUIRED)
-
-target_link_libraries(${PROJECT_NAME} PUBLIC spdlog::spdlog)
-
-# ---------------------------------------------------------------------------------------
 # libxr
 set(LIBXR_SYSTEM Webots)
 
@@ -89,3 +68,13 @@ add_compile_definitions(LIBXR_DEFAULT_SCALAR=double)
 add_subdirectory(third_part/libxr)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC xr)
+
+# ---------------------------------------------------------------------------------------
+# SDL GUI
+find_package(SDL2 REQUIRED)
+target_link_libraries(
+  ${PROJECT_NAME}
+  PUBLIC SDL2::SDL2
+  PUBLIC SDL2::SDL2main
+  PUBLIC SDL2_image
+  PUBLIC SDL2_ttf)
