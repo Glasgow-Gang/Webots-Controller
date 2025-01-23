@@ -6,6 +6,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_timer.h>
+#include <SDL_ttf.h>
 #include <cmath>
 #include <unistd.h>
 
@@ -43,12 +44,20 @@ public:
   void Init() {
     SDL_Init(SDL_INIT_EVERYTHING);
     IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG);
+    TTF_Init();
 
     window = SDL_CreateWindow("Example", SDL_WINDOWPOS_UNDEFINED,
                               SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT,
                               SDL_WINDOW_SHOWN);
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    font = TTF_OpenFont("../font.ttf", 24); // 加载字体文件
+    if (!font) {
+      printf("Failed to load font: %s\n", TTF_GetError());
+      SDL_Quit();
+      exit(-1);
+    }
 
     auto img_field = IMG_Load("../field.jpg");
     if (!img_field) {
@@ -98,6 +107,8 @@ public:
   }
 
   ~Sim2D() {
+    TTF_CloseFont(font);
+    TTF_Quit();
     SDL_DestroyTexture(memoryTexture);
     SDL_DestroyTexture(targetTexture);
     SDL_DestroyTexture(texture);
@@ -107,10 +118,31 @@ public:
     SDL_Quit();
   }
 
+  void DrawText(const char *text, int x, int y, SDL_Color color) {
+    SDL_Surface *surface = TTF_RenderText_Blended(font, text, color);
+    if (!surface) {
+      printf("Failed to create text surface: %s\n", TTF_GetError());
+      return;
+    }
+
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!texture) {
+      printf("Failed to create text texture: %s\n", SDL_GetError());
+      SDL_FreeSurface(surface);
+      return;
+    }
+
+    SDL_Rect textRect = {x, y, surface->w, surface->h};
+    SDL_RenderCopy(renderer, texture, nullptr, &textRect);
+
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(surface);
+  }
+
   // 在目标位置绘制一个绿色圆圈，并用箭头表示目标角度
   void DrawRobotTarget(int x, int y, double angle) {
     // 绘制绿色圆圈表示目标位置
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
     for (int w = 0; w < 360; w++) {
       double rad = w * PI / 180.0;
       int px = x + static_cast<int>(20 * cos(rad)); // 半径为20
@@ -119,7 +151,7 @@ public:
     }
 
     // 绘制蓝色箭头表示目标角度
-    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+    SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
     int arrowLength = 30; // 箭头长度
     int endX = x + static_cast<int>(arrowLength * cos(angle));
     int endY = y + static_cast<int>(arrowLength * sin(angle));
@@ -185,6 +217,11 @@ public:
     // 渲染背景
     SDL_RenderCopy(renderer, memoryTexture, nullptr, nullptr);
 
+    SDL_Color white = {255, 255, 255, 255};
+    DrawText(
+        magic_enum::enum_name((NaoRobot::nao_robot->current_motion)).data(), 10,
+        10, white);
+
     // 绘制机器人
     DrawRobot(static_cast<int>(robot.x * WIDTH),
               static_cast<int>(robot.y * HEIGHT), robot.angle);
@@ -193,6 +230,11 @@ public:
     DrawBall(static_cast<int>(ball.x * WIDTH),
              static_cast<int>(ball.y * HEIGHT));
 
+    printf("robot.target_x, robot.target_y: %f, %f\n", robot.target_x,
+           robot.target_y);
+
+    printf("ball.x, ball.y: %f, %f\n", ball.x, ball.y);
+
     DrawRobotTarget(static_cast<int>(robot.target_x * WIDTH),
                     static_cast<int>(robot.target_y * HEIGHT),
                     robot.target_angle);
@@ -200,7 +242,7 @@ public:
     // 显示所有内容
     SDL_RenderPresent(renderer);
 
-    SDL_Delay(1);
+    SDL_Delay(10);
   }
 
   void SetRobot(double x, double y, double angle) {
@@ -223,6 +265,7 @@ public:
   SDL_Texture *memoryTexture;
   SDL_Renderer *renderer;
   SDL_Window *window;
+  TTF_Font *font;
 
   struct {
     double x = 0, y = 0, angle = 0;

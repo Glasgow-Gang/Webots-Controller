@@ -94,8 +94,15 @@ public:
 
   void Update() {
     const double *position = robot_translation_field->getSFVec3f();
-    robot_pos = LibXR::Position<double>((position[0] + 5.0) / 10.0,
-                                        1.0 - (position[1] + 3.5) / 7.0, 0);
+    auto pos = LibXR::Position<double>((position[0] + 5.0) / 10.0,
+                                       1.0 - (position[1] + 3.5) / 7.0, 0);
+
+    pos.x() = pos.x() + 0.01 * cos(robot_angle.yaw_);
+    pos.y() = pos.y() + 0.01 * sin(robot_angle.yaw_);
+
+    if (!turning || LibXR::Thread::GetTime() < 200) {
+      nao_robot->robot_pos = pos;
+    }
 
     const double *rotation = robot_rotation_field->getSFRotation();
     robot_angle =
@@ -112,6 +119,10 @@ public:
   }
 
   void PlayMotion(MotionFile motion_file) {
+    if (LibXR::Thread::GetTime() < 200) {
+      return;
+    }
+
     auto status = async.GetStatus();
     if (status == LibXR::ASync::Status::DONE ||
         status == LibXR::ASync::Status::REDAY) {
@@ -120,10 +131,12 @@ public:
     }
   }
 
-  void RobotTurn(float target_angle) {
+  bool RobotTurn(float target_angle) {
     float angle = LibXR::CycleValue<double>(nao_robot->robot_angle.yaw_) -
                   LibXR::CycleValue<double>(target_angle);
     angle = -angle * 180 / M_PI;
+
+    turning = true;
 
     if (angle > 0) {
       if (angle > 60) {
@@ -131,9 +144,12 @@ public:
       } else if (angle > 40) {
         PlayMotion(MotionFile::TurnRight40);
       } else if (angle > 20) {
-        PlayMotion(MotionFile::TurnRight20);
+        PlayMotion(MotionFile::TurnRight40);
       } else if (angle > 10) {
-        PlayMotion(MotionFile::TurnRight20);
+        PlayMotion(MotionFile::TurnRight10);
+      } else {
+        turning = false;
+        return false;
       }
     } else {
       if (angle < -175) {
@@ -147,16 +163,21 @@ public:
       } else if (angle < -20) {
         PlayMotion(MotionFile::TurnLeft20);
       } else if (angle < -10) {
-        PlayMotion(MotionFile::TurnLeft20);
+        PlayMotion(MotionFile::TurnLeft10);
+      } else {
+        turning = false;
+        return false;
       }
     }
+
+    return true;
   }
 
-  void RobotFaceTo(double x, double y) {
+  bool RobotFaceTo(double x, double y) {
     double target_angle = LibXR::CycleValue<double>(
         atan2(y - nao_robot->robot_pos.y(), x - nao_robot->robot_pos.x()));
     this->target_angle = target_angle;
-    RobotTurn(target_angle);
+    return RobotTurn(target_angle);
   }
 
   double RobotGetDistanceTo(double x, double y) {
@@ -170,40 +191,87 @@ public:
         atan2(y - nao_robot->robot_pos.y(), x - nao_robot->robot_pos.x()));
   }
 
-  void RobotGoto(double &x, double &y, double min_error = 0.01) {
+  double RobotGetRelativeAngleTo(double x, double y) {
+    return LibXR::CycleValue<double>(
+        atan2(y - nao_robot->robot_pos.y(), x - nao_robot->robot_pos.x()) -
+        nao_robot->robot_angle.yaw_);
+  }
+
+  bool RobotGoto(double &x, double &y, double min_error = 0.01) {
     auto distance = RobotGetDistanceTo(x, y);
 
     this->target_x = x;
     this->target_y = y;
+
+    if (target_x > 1) {
+      target_x = 1;
+    }
+    if (target_x < 0) {
+      target_x = 0;
+    }
+    if (target_y > 1) {
+      target_y = 1;
+    }
+    if (target_y < 0) {
+      target_y = 0;
+    }
 
     if (distance > min_error) {
       if (std::abs(
               LibXR::CycleValue<double>(atan2(y - nao_robot->robot_pos.y(),
                                               x - nao_robot->robot_pos.x())) -
               nao_robot->robot_angle.yaw_) < M_PI / 18) {
-        if (distance > 0.2) {
+        if (distance > 0.13) {
           PlayMotion(MotionFile::Forwards50);
         } else {
           PlayMotion(MotionFile::Forwards);
         }
+
+        return true;
       } else {
-        RobotFaceTo(x, y);
+        return RobotFaceTo(x, y);
       }
     } else {
-      RobotFaceTo(x, y);
+      return RobotFaceTo(x, y);
     }
   }
 
-  void RobotMoveAround(double x, double y, double radius, double angle) {
+  bool RobotMoveAround(double x, double y, double radius, double angle,
+                       double safe_radius_mult = 2, double min_error = 0.01) {
     // 计算极坐标目标点的全局坐标
     double target_x = x + radius * cos(angle);
     double target_y = y + radius * sin(angle);
 
-    if (RobotGetDistanceTo(target_x, target_y) >
-        0.01) { // 移动到计算出的目标位置
-      RobotGoto(target_x, target_y);
+    double distance_to_target = RobotGetDistanceTo(target_x, target_y);
+    double distance_to_ball = RobotGetDistanceTo(x, y);
+
+    UNUSED(distance_to_ball);
+    double x_ball_to_target = target_x - nao_robot->ball_pos.x();
+    double y_ball_to_target = target_y - nao_robot->ball_pos.y();
+
+    LibXR::CycleValue<double> angle_to_target =
+        LibXR::CycleValue<double>(atan2(y_ball_to_target, x_ball_to_target));
+
+    float angle_error =
+        angle_to_target -
+        LibXR::CycleValue<double>(RobotGetAngleTo(ball_pos.x(), ball_pos.y()));
+
+    if (std::abs(angle_error) < M_PI / 1.8) {
+      if (angle_error < 0) {
+        angle -= M_PI / 3.0;
+      } else {
+        angle += M_PI / 3.0;
+      }
+
+      target_x = x + radius * safe_radius_mult * cos(angle);
+      target_y = y + radius * safe_radius_mult * sin(angle);
+    }
+
+    if (distance_to_target > min_error) { // 移动到计算出的目标位置
+      RobotGoto(target_x, target_y, min_error);
+      return true;
     } else {
-      RobotFaceTo(x, y);
+      return RobotFaceTo(x, y);
     }
   }
 
@@ -250,14 +318,37 @@ public:
     UNUSED(in_isr);
     UNUSED(async);
 
+    LibXR::Thread::Sleep(200);
+    nao_robot->moving = true;
     printf("PlayMotion(%s)\n", magic_enum::enum_name(*motion_file).data());
     nao_robot->motion[*motion_file]->play();
     while (!nao_robot->motion[*motion_file]->isOver()) {
       LibXR::Thread::Sleep(nao_robot->timeStep);
     }
+    nao_robot->turning = false;
+    nao_robot->moving = false;
+  }
+
+  bool BallInOurField() {
+    if (gate_addr < 0.5) {
+      if (ball_pos.x() < 0.5) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      if (ball_pos.x() > 0.5) {
+        return true;
+      } else {
+        return false;
+      }
+    }
   }
 
   double gate_addr;
+
+  bool turning = false;
+  bool moving = false;
 
   int timeStep;
 
