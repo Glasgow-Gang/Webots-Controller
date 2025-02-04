@@ -21,6 +21,21 @@ double clamp(double value, double min, double max) {
   return (value < min) ? min : (value > max) ? max : value;
 }
 
+bool FallDetect() {
+  if (NaoRobot::nao_robot->accelerometer_data[0] > 1.0) {
+    NaoRobot::nao_robot->PlayMotion(MotionFile::StandUpFromBack);
+    sleep(4);
+    return true;
+  }
+  if (NaoRobot::nao_robot->accelerometer_data[0] < -1.0) {
+    NaoRobot::nao_robot->PlayMotion(MotionFile::StandUpFromFront);
+    sleep(4);
+    return true;
+  }
+
+  return false;
+}
+
 int main(int argc, char **argv) {
 
   RobotType robot_type = Defender1;
@@ -61,7 +76,9 @@ int main(int argc, char **argv) {
 
   if (robot_type == Defender1) {
     while (true) {
-
+      if (FallDetect()) {
+        continue;
+      }
       std::cout << "fsm: " << fsm << std::endl;
 
       if (!nao_robot.BallInOurField() || !nao_robot.BallInDefender1Field()) {
@@ -165,6 +182,10 @@ int main(int argc, char **argv) {
     }
   } else if (robot_type == Defender2) {
     while (true) {
+
+      if (FallDetect()) {
+        continue;
+      }
 
       std::cout << "fsm: " << fsm << std::endl;
 
@@ -270,6 +291,10 @@ int main(int argc, char **argv) {
   } else if (robot_type == Attacker) {
     ans = 1;
     while (true) {
+      if (FallDetect()) {
+        continue;
+      }
+
       std::cout << "fsm: " << fsm << std::endl;
 
       if (nao_robot.BallInOurField()) {
@@ -353,6 +378,10 @@ int main(int argc, char **argv) {
   } else if (robot_type == GoalKeeper) {
     ans = 1;
     while (true) {
+      if (FallDetect()) {
+        continue;
+      }
+
       float y = nao_robot.ball_pos.y();
       y = clamp(y, 0.35, 0.65);
       ans = nao_robot.RobotGoto(nao_robot.GetOwnGoalKeeperInitX(), y, 0.15);

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
+#include <webots/Accelerometer.hpp>
 #include <webots/Robot.hpp>
 #include <webots/Supervisor.hpp>
 #include <webots/utils/Motion.hpp>
@@ -101,6 +102,9 @@ public:
 
     ASSERT(async.GetStatus() == LibXR::ASync::Status::REDAY);
 
+    accelerometer = supervisor.getAccelerometer("accelerometer");
+    accelerometer->enable(timeStep);
+
     void (*thread_fun)(NaoRobot *) = [](NaoRobot *robot) {
       while (true) {
         robot->Update();
@@ -113,6 +117,11 @@ public:
   }
 
   void Update() {
+    auto accel = accelerometer->getValues();
+    accelerometer_data[0] = accel[0];
+    accelerometer_data[1] = accel[1];
+    accelerometer_data[2] = accel[2];
+
     const double *position = robot_translation_field->getSFVec3f();
     auto pos = LibXR::Position<double>((position[0] + 5.0) / 10.0,
                                        1.0 - (position[1] + 3.5) / 7.0, 0);
@@ -125,12 +134,10 @@ public:
     }
 
     const double *rotation = robot_rotation_field->getSFRotation();
+    robot_angle_axis = Eigen::AngleAxis<double>(
+        -rotation[3], Eigen::Vector3d(rotation[0], rotation[1], rotation[2]));
     robot_angle =
-        LibXR::RotationMatrix<double>(
-            Eigen::AngleAxis<double>(
-                -rotation[3],
-                Eigen::Vector3d(rotation[0], rotation[1], rotation[2]))
-                .toRotationMatrix())
+        LibXR::RotationMatrix<double>(robot_angle_axis.toRotationMatrix())
             .toEulerAngleZYX();
 
     const double *ball_position = ball_translation_field->getSFVec3f();
@@ -448,9 +455,15 @@ public:
   LibXR::Position<double> robot_pos;
   LibXR::EulerAngle<double> robot_angle;
 
+  Eigen::AngleAxis<double> robot_angle_axis;
+
+  webots::Accelerometer *accelerometer;
+
   LibXR::Position<double> ball_pos;
 
   LibXR::Thread thread;
+
+  float accelerometer_data[3] = {0, 0, 0};
 
   double target_x = 0, target_y = 0;
   double target_angle = 0;
