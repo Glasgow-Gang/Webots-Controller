@@ -18,7 +18,7 @@ class NaoRobot;
 
 class Sim2D {
 public:
-  Sim2D() {
+  Sim2D(int index = 0) : index(index) {
     sim2d = this;
     void (*thread_fun)(Sim2D *) = [](Sim2D *sim) {
       sim->Init();
@@ -104,6 +104,8 @@ public:
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, memoryTexture, nullptr, nullptr);
     SDL_RenderPresent(renderer);
+
+    SDL_SetWindowPosition(window, 1024 * (index % 2), 720 * (index % 4 / 2));
   }
 
   ~Sim2D() {
@@ -278,6 +280,8 @@ public:
   } ball;
 
   LibXR::Thread thread;
+
+  int index = 0;
 
   static Sim2D *sim2d;
 };

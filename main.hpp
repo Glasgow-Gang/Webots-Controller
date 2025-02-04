@@ -19,6 +19,12 @@
 
 #define GATE_1_X (0.04)
 #define GATE_2_X (0.94)
+#define GATE_1_DEFENDER_INIT_X (0.2)
+#define GATE_1_DEFENDER_INIT_Y (0.28)
+#define GATE_1_ATTACKER_INIT_X (0.5)
+#define GATE_1_ATTACKER_INIT_Y (0.9)
+#define SHOOT_OFFSET (-0.01)
+#define GATE_1_GOALKEEPER_INIT_X (0.1)
 
 class NaoRobot;
 
@@ -57,13 +63,27 @@ enum MotionFile {
   MOTION_FILE_COUNT
 };
 
+typedef enum { Defender1, Attacker, Defender2, GoalKeeper } RobotType;
+
 class NaoRobot {
 public:
-  NaoRobot(double gate_addr = GATE_1_X)
+  NaoRobot(RobotType robot_type, double gate_addr = GATE_1_X)
       : gate_addr(gate_addr), async(4096, LibXR::Thread::Priority::REALTIME) {
     nao_robot = this;
+    const char player_name_tab[8][12] = {
+        "PLAYER_1_0", "PLAYER_2_0", "PLAYER_3_0", "PLAYER_4_0",
+        "PLAYER_1_1", "PLAYER_2_1", "PLAYER_3_1", "PLAYER_4_1"};
+    if (gate_addr == GATE_1_X) {
+      std::cout << "robot_name: " << player_name_tab[robot_type] << std::endl;
+      robot_node = supervisor.getFromDef(player_name_tab[robot_type]);
+    } else {
+      std::cout << "robot_name: " << player_name_tab[robot_type + 4]
+                << std::endl;
+      robot_node = supervisor.getFromDef(player_name_tab[robot_type + 4]);
+    }
+
     timeStep = supervisor.getBasicTimeStep();
-    robot_node = supervisor.getFromDef("PLAYER_1_0");
+
     ball_node = supervisor.getFromDef("BALL");
     robot_translation_field = robot_node->getField("translation");
     robot_rotation_field = robot_node->getField("rotation");
@@ -97,8 +117,8 @@ public:
     auto pos = LibXR::Position<double>((position[0] + 5.0) / 10.0,
                                        1.0 - (position[1] + 3.5) / 7.0, 0);
 
-    pos.x() = pos.x() + 0.01 * cos(robot_angle.yaw_);
-    pos.y() = pos.y() + 0.01 * sin(robot_angle.yaw_);
+    pos.y() = pos.y() + SHOOT_OFFSET * cos(robot_angle.yaw_);
+    pos.x() = pos.x() + SHOOT_OFFSET * sin(robot_angle.yaw_);
 
     if (!turning || LibXR::Thread::GetTime() < 200) {
       nao_robot->robot_pos = pos;
@@ -118,9 +138,9 @@ public:
                                        1.0 - (ball_position[1] + 3.5) / 7.0, 0);
   }
 
-  void PlayMotion(MotionFile motion_file) {
+  bool PlayMotion(MotionFile motion_file) {
     if (LibXR::Thread::GetTime() < 200) {
-      return;
+      return false;
     }
 
     auto status = async.GetStatus();
@@ -128,7 +148,10 @@ public:
         status == LibXR::ASync::Status::REDAY) {
       current_motion = motion_file;
       async.AssignJob(async_callback);
+      return true;
     }
+
+    return false;
   }
 
   bool RobotTurn(float target_angle) {
@@ -197,7 +220,7 @@ public:
         nao_robot->robot_angle.yaw_);
   }
 
-  bool RobotGoto(double &x, double &y, double min_error = 0.01) {
+  bool RobotGoto(double x, double y, double min_error = 0.01) {
     auto distance = RobotGetDistanceTo(x, y);
 
     this->target_x = x;
@@ -307,9 +330,49 @@ public:
 
   double GetEnemyGate() {
     if (gate_addr == GATE_1_X) {
-      return GATE_2_X;
+      return GATE_2_X + 0.1;
     } else {
-      return GATE_1_X;
+      return GATE_1_X - 0.1;
+    }
+  }
+
+  double GetOwnDefenderInitX() {
+    if (gate_addr == GATE_1_X) {
+      return GATE_1_DEFENDER_INIT_X;
+    } else {
+      return 1 - GATE_1_DEFENDER_INIT_X;
+    }
+  }
+
+  double GetOwnDefenderInitY() {
+    if (gate_addr == GATE_1_X) {
+      return GATE_1_DEFENDER_INIT_Y;
+    } else {
+      return 1 - GATE_1_DEFENDER_INIT_Y;
+    }
+  }
+
+  double GetOwnGoalKeeperInitX() {
+    if (gate_addr == GATE_1_X) {
+      return GATE_1_GOALKEEPER_INIT_X;
+    } else {
+      return 1 - GATE_1_GOALKEEPER_INIT_X;
+    }
+  }
+
+  double GetOwnAttackerInitX() {
+    if (gate_addr == GATE_1_X) {
+      return 1 - GATE_1_ATTACKER_INIT_X;
+    } else {
+      return GATE_1_ATTACKER_INIT_X;
+    }
+  }
+
+  double GetOwnAttackerInitY() {
+    if (gate_addr == GATE_1_X) {
+      return GATE_1_ATTACKER_INIT_Y;
+    } else {
+      return 1 - GATE_1_ATTACKER_INIT_Y;
     }
   }
 
@@ -327,20 +390,37 @@ public:
     }
     nao_robot->turning = false;
     nao_robot->moving = false;
+    *motion_file = MOTION_FILE_COUNT;
   }
 
   bool BallInOurField() {
     if (gate_addr < 0.5) {
-      if (ball_pos.x() < 0.5) {
+      if (ball_pos.x() < 0.49) {
         return true;
       } else {
         return false;
       }
     } else {
-      if (ball_pos.x() > 0.5) {
+      if (ball_pos.x() > 0.49) {
         return true;
       } else {
         return false;
+      }
+    }
+  }
+
+  bool BallInDefender1Field() {
+    if (gate_addr < 0.5) {
+      if (ball_pos.y() > 0.5) {
+        return false;
+      } else {
+        return true;
+      }
+    } else {
+      if (ball_pos.y() < 0.5) {
+        return false;
+      } else {
+        return true;
       }
     }
   }
