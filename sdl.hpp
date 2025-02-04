@@ -105,7 +105,7 @@ public:
     SDL_RenderCopy(renderer, memoryTexture, nullptr, nullptr);
     SDL_RenderPresent(renderer);
 
-    SDL_SetWindowPosition(window, 1024 * (index % 2), 720 * (index % 4 / 2));
+    SDL_SetWindowPosition(window, 1024 * (index % 2), 780 * (index % 4 / 2));
   }
 
   ~Sim2D() {

@@ -22,15 +22,20 @@ double clamp(double value, double min, double max) {
 }
 
 bool FallDetect() {
-  if (NaoRobot::nao_robot->accelerometer_data[0] > 1.0) {
-    NaoRobot::nao_robot->PlayMotion(MotionFile::StandUpFromBack);
-    sleep(4);
-    return true;
-  }
-  if (NaoRobot::nao_robot->accelerometer_data[0] < -1.0) {
-    NaoRobot::nao_robot->PlayMotion(MotionFile::StandUpFromFront);
-    sleep(4);
-    return true;
+  auto acc = NaoRobot::nao_robot->accelerometer_data;
+
+  if (std::abs(acc[0]) > std::abs(acc[1]) &&
+      std::abs(acc[0]) > std::abs(acc[2])) {
+
+    if (acc[0] < -5.0) {
+      NaoRobot::nao_robot->PlayMotion(MotionFile::StandUpFromFront);
+      // LibXR::Thread::Sleep(4000);
+      return true;
+    } else if (acc[2] > 0) {
+      NaoRobot::nao_robot->PlayMotion(MotionFile::StandUpFromBack);
+      // LibXR::Thread::Sleep(4000);
+      return true;
+    }
   }
 
   return false;
@@ -322,7 +327,7 @@ int main(int argc, char **argv) {
       case 1:
         nao_robot.RobotGoto(nao_robot.ball_pos.x(), nao_robot.ball_pos.y());
         if (nao_robot.RobotGetDistanceTo(nao_robot.ball_pos.x(),
-                                         nao_robot.ball_pos.y()) < 0.02) {
+                                         nao_robot.ball_pos.y()) < 0.027) {
           fsm++;
         } else {
           printf("distance: %f\n",
