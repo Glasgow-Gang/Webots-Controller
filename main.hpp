@@ -69,7 +69,8 @@ typedef enum { Defender1, Attacker, Defender2, GoalKeeper } RobotType;
 class NaoRobot {
 public:
   NaoRobot(RobotType robot_type, double gate_addr = GATE_1_X)
-      : gate_addr(gate_addr), async(4096, LibXR::Thread::Priority::REALTIME) {
+      : robot_type(robot_type), gate_addr(gate_addr),
+        async(4096, LibXR::Thread::Priority::REALTIME) {
     nao_robot = this;
     const char player_name_tab[8][12] = {
         "PLAYER_1_0", "PLAYER_2_0", "PLAYER_3_0", "PLAYER_4_0",
@@ -383,6 +384,23 @@ public:
     }
   }
 
+  void Stop() {}
+
+  bool IsFallen() {
+    if (std::abs(accelerometer_data[0]) > std::abs(accelerometer_data[1]) &&
+        std::abs(accelerometer_data[0]) > std::abs(accelerometer_data[2])) {
+      if (accelerometer_data[0] < -5.0) {
+        NaoRobot::nao_robot->PlayMotion(MotionFile::StandUpFromFront);
+        return true;
+      } else if (accelerometer_data[2] > 0) {
+        NaoRobot::nao_robot->PlayMotion(MotionFile::StandUpFromBack);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   static void AsyncMotionPlayFun(bool in_isr, MotionFile *motion_file,
                                  LibXR::ASync *async) {
     UNUSED(in_isr);
@@ -431,6 +449,8 @@ public:
       }
     }
   }
+
+  RobotType robot_type;
 
   double gate_addr;
 

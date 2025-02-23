@@ -27,7 +27,7 @@ set(WEBOTS_HOME /usr/local/webots)
 
 # ---------------------------------------------------------------------------------------
 # Sources
-add_executable(${PROJECT_NAME} main.cpp)
+add_executable(${PROJECT_NAME} main.cpp behavior_nodes.cpp)
 
 # ---------------------------------------------------------------------------------------
 # Webots
@@ -78,3 +78,8 @@ target_link_libraries(
   PUBLIC SDL2::SDL2main
   PUBLIC SDL2_image
   PUBLIC SDL2_ttf)
+
+# ---------------------------------------------------------------------------------------
+# Behavior Tree
+find_package(behaviortree_cpp REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC behaviortree_cpp)

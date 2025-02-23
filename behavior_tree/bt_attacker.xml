@@ -1,0 +1,21 @@
+<root BTCPP_format="4">
+    <BehaviorTree>
+        <Fallback>
+            <FallDetect/>
+            <Sequence>
+                <Negate>
+                    <BallInOurField/>
+                </Negate>
+                <MoveToBall/>
+                <ApproachBall/>
+                <KickBall/>
+                <WaitForMotionComplete/>
+            </Sequence>
+            <Sequence>
+                <BallInOurField/>
+                <MoveToHomePosition/>
+            </Sequence>
+            <MoveToHomePosition/>
+        </Fallback>
+    </BehaviorTree>
+</root>

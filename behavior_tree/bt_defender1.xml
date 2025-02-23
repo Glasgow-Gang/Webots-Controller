@@ -1,0 +1,31 @@
+<root BTCPP_format="4">
+    <BehaviorTree>
+        <Fallback>
+            <!-- 检测摔倒，摔倒后仅起身 -->
+            <FallDetect/>
+
+            <!-- 主要防守逻辑 -->
+            <Sequence>
+                <BallInOurField/>
+                <BallInLeftField/>
+                <MoveToBall/>
+                <ApproachBall/>
+                <KickBall/>
+                <WaitForMotionComplete/>
+            </Sequence>
+
+            <!-- 如果球进入 Defender2 区域或进入对方半场，回原点 -->
+            <Sequence>
+                <BallInRightField/>
+                <MoveToHomePosition/>
+            </Sequence>
+            <Sequence>
+                <BallInEnemyField/>
+                <MoveToHomePosition/>
+            </Sequence>
+
+            <!-- 默认回到初始位置 -->
+            <MoveToHomePosition/>
+        </Fallback>
+    </BehaviorTree>
+</root>

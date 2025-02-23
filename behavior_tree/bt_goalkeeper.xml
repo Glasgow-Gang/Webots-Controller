@@ -1,0 +1,17 @@
+<root BTCPP_format="4">
+    <BehaviorTree>
+        <Fallback>
+            <!-- 处理摔倒 -->
+            <FallDetect/>
+
+            <!-- 守门逻辑 -->
+            <Sequence>
+                <DefendGoal/>
+                <MoveToHomePosition/>
+            </Sequence>
+
+            <!-- ⚠️ 新增：如果没有守门任务，默认回到初始位置 -->
+            <MoveToHomePosition/>
+        </Fallback>
+    </BehaviorTree>
+</root>
